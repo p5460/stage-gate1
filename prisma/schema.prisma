@@ -1,0 +1,493 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                     String                 @id @default(cuid())
+  name                   String?
+  email                  String?                @unique
+  emailVerified          DateTime?
+  image                  String?
+  password               String?
+  role                   UserRole               @default(USER)
+  customRoleId           String?
+  department             String?
+  position               String?
+  phone                  String?
+  bio                    String?
+  isTwoFactorEnabled     Boolean                @default(false)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  accounts               Account[]
+  activityLogs           ActivityLog[]
+  documents              Document[]
+  gateReviews            GateReview[]
+  notifications          Notification[]
+  projectsLed            Project[]              @relation("ProjectLead")
+  projectMembers         ProjectMember[]
+  redFlags               RedFlag[]
+  twoFactorConfirmation  TwoFactorConfirmation?
+  customRole             CustomRole?            @relation(fields: [customRoleId], references: [id])
+  comments               Comment[]
+  notificationPreference NotificationPreference?
+  budgetAllocationsRequested BudgetAllocation[] @relation("BudgetRequester")
+  budgetAllocationsApproved  BudgetAllocation[] @relation("BudgetApprover")
+  budgetAllocationsRejected  BudgetAllocation[] @relation("BudgetRejecter")
+  budgetApprovals        BudgetApproval[]
+  budgetExpensesSubmitted BudgetExpense[]       @relation("ExpenseSubmitter")
+  budgetExpensesApproved  BudgetExpense[]       @relation("ExpenseApprover")
+  templatesUploaded      DocumentTemplate[]    @relation("TemplateUploader")
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model passwordResetToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id     String @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Cluster {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  color       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  projects    Project[]
+}
+
+model Project {
+  id                  String             @id @default(cuid())
+  projectId           String             @unique
+  name                String
+  description         String?
+  businessCase        String?
+  currentStage        ProjectStage       @default(STAGE_0)
+  status              ProjectStatus      @default(ACTIVE)
+  startDate           DateTime?
+  endDate             DateTime?
+  budget              Float?
+  budgetUtilization   Float?             @default(0)
+  technologyReadiness String?
+  ipPotential         String?
+  duration            Int?
+  clusterId           String
+  leadId              String
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  activities          ActivityLog[]
+  documents           Document[]
+  gateReviews         GateReview[]
+  milestones          Milestone[]
+  budgetAllocations   BudgetAllocation[]
+  cluster             Cluster            @relation(fields: [clusterId], references: [id])
+  lead                User               @relation("ProjectLead", fields: [leadId], references: [id])
+  members             ProjectMember[]
+  redFlags            RedFlag[]
+  comments            Comment[]
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model GateReview {
+  id          String        @id @default(cuid())
+  projectId   String
+  stage       ProjectStage
+  reviewerId  String
+  sessionId   String?
+  decision    GateDecision?
+  score       Float?
+  comments    String?
+  reviewDate  DateTime?
+  isCompleted Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewer    User          @relation(fields: [reviewerId], references: [id])
+}
+
+model Document {
+  id          String       @id @default(cuid())
+  projectId   String
+  uploaderId  String
+  name        String
+  description String?
+  type        DocumentType
+  fileUrl     String
+  fileName    String
+  fileSize    Int?
+  mimeType    String?
+  isRequired  Boolean      @default(false)
+  isApproved  Boolean?
+  approvedBy  String?
+  approvedAt  DateTime?
+  version     String       @default("1.0")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader    User         @relation(fields: [uploaderId], references: [id])
+}
+
+model RedFlag {
+  id          String    @id @default(cuid())
+  projectId   String
+  raisedById  String
+  title       String
+  description String
+  severity    String
+  status      String    @default("OPEN")
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  raisedBy    User      @relation(fields: [raisedById], references: [id])
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  dueDate     DateTime
+  completedAt DateTime?
+  isCompleted Boolean   @default(false)
+  progress    Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  projectId String?
+  action    String
+  details   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  project   Project? @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Template {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  type        DocumentType
+  stage       ProjectStage?
+  fileUrl     String
+  fileName    String
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Settings {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("STRING")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CustomRole {
+  id          String                 @id @default(cuid())
+  name        String                 @unique
+  description String?
+  color       String?                @default("#6B7280")
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  users       User[]
+  permissions CustomRolePermission[]
+}
+
+model Permission {
+  id              String                 @id @default(cuid())
+  key             String                 @unique
+  name            String
+  description     String?
+  category        String
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  rolePermissions CustomRolePermission[]
+}
+
+model CustomRolePermission {
+  id           String     @id @default(cuid())
+  customRoleId String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  customRole   CustomRole @relation(fields: [customRoleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([customRoleId, permissionId])
+}
+
+model Comment {
+  id        String    @id @default(cuid())
+  content   String
+  projectId String?
+  parentId  String?
+  authorId  String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+}
+
+model NotificationPreference {
+  id                    String  @id @default(cuid())
+  userId                String  @unique
+  emailNotifications    Boolean @default(true)
+  reviewAssignments     Boolean @default(true)
+  reviewSubmissions     Boolean @default(true)
+  projectUpdates        Boolean @default(true)
+  redFlagAlerts         Boolean @default(true)
+  documentUploads       Boolean @default(false)
+  statusChanges         Boolean @default(true)
+  milestoneReminders    Boolean @default(true)
+  weeklyDigest          Boolean @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  GATEKEEPER
+  PROJECT_LEAD
+  RESEARCHER
+  REVIEWER
+  CUSTOM
+}
+
+enum ProjectStage {
+  STAGE_0
+  STAGE_1
+  STAGE_2
+  STAGE_3
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PENDING_REVIEW
+  ON_HOLD
+  COMPLETED
+  TERMINATED
+  RED_FLAG
+}
+
+enum GateDecision {
+  GO
+  RECYCLE
+  HOLD
+  STOP
+}
+
+enum DocumentType {
+  BUSINESS_CASE
+  RESEARCH_PLAN
+  TECHNICAL_SPEC
+  RISK_ASSESSMENT
+  BUDGET_PLAN
+  MILESTONE_REPORT
+  FINAL_REPORT
+  OTHER
+}
+
+model BudgetAllocation {
+  id               String           @id @default(cuid())
+  projectId        String
+  category         String
+  subcategory      String?
+  description      String?
+  allocatedAmount  Float
+  spentAmount      Float            @default(0)
+  remainingAmount  Float
+  status           BudgetStatus     @default(PENDING)
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  requestedBy      String
+  requestedAt      DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  requester        User             @relation("BudgetRequester", fields: [requestedBy], references: [id])
+  approver         User?            @relation("BudgetApprover", fields: [approvedBy], references: [id])
+  rejecter         User?            @relation("BudgetRejecter", fields: [rejectedBy], references: [id])
+  approvals        BudgetApproval[]
+  expenses         BudgetExpense[]
+}
+
+model BudgetApproval {
+  id                 String           @id @default(cuid())
+  budgetAllocationId String
+  approverId         String
+  status             ApprovalStatus   @default(PENDING)
+  comments           String?
+  approvedAmount     Float?
+  approvedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  budgetAllocation   BudgetAllocation @relation(fields: [budgetAllocationId], references: [id], onDelete: Cascade)
+  approver           User             @relation(fields: [approverId], references: [id])
+
+  @@unique([budgetAllocationId, approverId])
+}
+
+model BudgetExpense {
+  id                 String           @id @default(cuid())
+  budgetAllocationId String
+  description        String
+  amount             Float
+  expenseDate        DateTime
+  receiptUrl         String?
+  approvedBy         String?
+  approvedAt         DateTime?
+  status             ExpenseStatus    @default(PENDING)
+  submittedBy        String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  budgetAllocation   BudgetAllocation @relation(fields: [budgetAllocationId], references: [id], onDelete: Cascade)
+  submitter          User             @relation("ExpenseSubmitter", fields: [submittedBy], references: [id])
+  approver           User?            @relation("ExpenseApprover", fields: [approvedBy], references: [id])
+}
+
+enum BudgetStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PARTIALLY_APPROVED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  PROJECT_UPDATE
+  GATE_REVIEW
+  RED_FLAG
+  DOCUMENT_UPLOAD
+  APPROVAL
+  REJECTION
+  BUDGET_REQUEST
+  BUDGET_APPROVED
+  BUDGET_REJECTED
+  EXPENSE_SUBMITTED
+  EXPENSE_APPROVED
+}
+
+
+model DocumentTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  category       String
+  stage          String
+  fileName       String
+  originalName   String
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  isRequired     Boolean  @default(false)
+  uploadedById   String
+  uploadedBy     User     @relation("TemplateUploader", fields: [uploadedById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([category])
+  @@index([stage])
+  @@index([uploadedById])
+}
