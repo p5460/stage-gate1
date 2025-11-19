@@ -2,12 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/components/theme-provider";
-import { auth } from "@/auth";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
-
-// Force dynamic rendering to avoid Edge Runtime issues with Prisma
-export const dynamic = "force-dynamic";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,20 +26,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  let session;
-  try {
-    session = await auth();
-  } catch (error) {
-    console.error("Auth error in layout:", error);
-    session = null;
-  }
   return (
-    <SessionProvider session={session}>
+    <SessionProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
           <link
