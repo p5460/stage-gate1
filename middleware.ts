@@ -24,10 +24,15 @@ export async function middleware(req: NextRequest) {
   }
 
   // Get the session token
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  });
+  let token = null;
+  try {
+    token = await getToken({
+      req,
+      secret: process.env.AUTH_SECRET,
+    });
+  } catch (error) {
+    console.error("Error getting token in middleware:", error);
+  }
 
   const isLoggedIn = !!token;
   const isPublicRoute = publicRoutes.includes(pathname);
