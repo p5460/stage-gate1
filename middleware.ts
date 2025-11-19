@@ -1,8 +1,8 @@
-import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import authConfig from "@/auth.config";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
-// Inline routes for Edge Runtime compatibility
+// Route configuration
 const publicRoutes = ["/", "/auth/new-verification"];
 const authRoutes = [
   "/auth/login",
@@ -14,44 +14,49 @@ const authRoutes = [
 const apiAuthPrefix = "/api/auth";
 const DEFAULT_LOGIN_REDIRECT = "/dashboard";
 
-const { auth } = NextAuth(authConfig);
-
-export default auth((req) => {
+export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
+  const pathname = nextUrl.pathname;
 
-  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
-  const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
-  const isAuthRoute = authRoutes.includes(nextUrl.pathname);
-
-  if (isApiAuthRoute) {
-    return null;
+  // Allow API auth routes to pass through
+  if (pathname.startsWith(apiAuthPrefix)) {
+    return NextResponse.next();
   }
 
+  // Get the session token
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+  });
+
+  const isLoggedIn = !!token;
+  const isPublicRoute = publicRoutes.includes(pathname);
+  const isAuthRoute = authRoutes.includes(pathname);
+
+  // Redirect logged-in users away from auth pages
   if (isAuthRoute) {
     if (isLoggedIn) {
-      return Response.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
+      return NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
     }
-    return null;
+    return NextResponse.next();
   }
 
+  // Redirect non-logged-in users to login
   if (!isLoggedIn && !isPublicRoute) {
-    let callbackUrl = nextUrl.pathname;
+    let callbackUrl = pathname;
     if (nextUrl.search) {
       callbackUrl += nextUrl.search;
     }
 
     const encodedCallbackUrl = encodeURIComponent(callbackUrl);
-
-    return Response.redirect(
+    return NextResponse.redirect(
       new URL(`/auth/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
     );
   }
 
   // Role-based access control for protected routes
-  if (isLoggedIn && req.auth?.user) {
-    const userRole = req.auth.user.role;
-    const pathname = nextUrl.pathname;
+  if (isLoggedIn && token?.role) {
+    const userRole = token.role as string;
 
     // Admin routes - restricted to ADMIN and GATEKEEPER roles
     if (pathname.startsWith("/admin")) {
@@ -100,8 +105,8 @@ export default auth((req) => {
     }
   }
 
-  return null;
-});
+  return NextResponse.next();
+}
 
 // Optionally, don't invoke Middleware on some paths
 export const config = {
