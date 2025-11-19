@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+// Temporarily commented out to test Edge Runtime
+// import { getToken } from "next-auth/jwt";
 
 // Route configuration
 const publicRoutes = ["/", "/auth/new-verification"];
