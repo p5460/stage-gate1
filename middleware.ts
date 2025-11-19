@@ -42,29 +42,26 @@ export default auth((req) => {
     );
   }
 
-  // Role-based access control for protected routes - TEMPORARILY DISABLED FOR TESTING
+  // Role-based access control for protected routes
   if (isLoggedIn && req.auth?.user) {
     const userRole = req.auth.user.role;
     const pathname = nextUrl.pathname;
 
-    // TEMPORARILY COMMENT OUT ALL RESTRICTIONS FOR TESTING
-    /*
-    // Admin routes - temporarily allow more roles for testing
+    // Admin routes - restricted to ADMIN and GATEKEEPER roles
     if (pathname.startsWith("/admin")) {
-      if (!["ADMIN", "GATEKEEPER", "USER"].includes(userRole)) {
-        console.log(`Access denied to ${pathname} for role: ${userRole}`);
+      if (!["ADMIN", "GATEKEEPER"].includes(userRole)) {
         return NextResponse.redirect(new URL("/dashboard", nextUrl));
       }
     }
 
-    // Gatekeeper and admin routes
+    // Gatekeeper and review routes - restricted to ADMIN, GATEKEEPER, and REVIEWER roles
     if (pathname.includes("/gate-reviews") || pathname.includes("/reviews")) {
       if (!["ADMIN", "GATEKEEPER", "REVIEWER"].includes(userRole)) {
         return NextResponse.redirect(new URL("/dashboard", nextUrl));
       }
     }
 
-    // Project management routes - require project lead or admin
+    // Project management routes - require PROJECT_LEAD, ADMIN, or GATEKEEPER
     if (
       pathname.includes("/projects/create") ||
       pathname.includes("/projects/edit")
@@ -81,7 +78,7 @@ export default auth((req) => {
       }
     }
 
-    // Reports - temporarily allow more roles for testing
+    // Reports - accessible to multiple roles
     if (pathname.startsWith("/reports")) {
       if (
         ![
@@ -90,14 +87,11 @@ export default auth((req) => {
           "PROJECT_LEAD",
           "RESEARCHER",
           "REVIEWER",
-          "USER",
         ].includes(userRole)
       ) {
-        console.log(`Access denied to ${pathname} for role: ${userRole}`);
         return NextResponse.redirect(new URL("/dashboard", nextUrl));
       }
     }
-    */
   }
 
   return null;

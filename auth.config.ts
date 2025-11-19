@@ -1,12 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import AzureAD from "next-auth/providers/azure-ad";
-
-import { LoginSchema } from "@/schemas";
-import { getUserByEmail } from "@/data/user";
-import bcrypt from "bcryptjs";
 
 export default {
   callbacks: {
@@ -34,15 +29,8 @@ export default {
 
       return session;
     },
-    async jwt({ token, user }) {
-      // If user is provided (during sign-in), store the role
-      if (user && "role" in user) {
-        token.role = user.role;
-        token.name = user.name;
-        token.email = user.email;
-        token.isOAuth = false; // Will be set properly in main auth.ts
-      }
-
+    async jwt({ token }) {
+      // Pass through token without database queries for Edge Runtime compatibility
       return token;
     },
   },
@@ -59,26 +47,6 @@ export default {
       clientId: process.env.AZURE_AD_CLIENT_ID,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
       issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
-    }),
-    Credentials({
-      async authorize(credentials) {
-        const validatedFields = LoginSchema.safeParse(credentials);
-
-        if (validatedFields.success) {
-          const { email, password } = validatedFields.data;
-
-          const user = await getUserByEmail(email);
-          if (!user || !user.password) return null;
-
-          const passwordsMatch = await bcrypt.compare(password, user.password);
-
-          if (passwordsMatch) {
-            return user;
-          }
-        }
-
-        return null;
-      },
     }),
   ],
 } satisfies NextAuthConfig;

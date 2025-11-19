@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "re_placeholder");
 
 export interface EmailOptions {
   to: string | string[];
@@ -11,6 +11,18 @@ export interface EmailOptions {
 
 export async function sendEmail(options: EmailOptions) {
   try {
+    // Skip email sending if no API key is configured (e.g., during build)
+    if (
+      !process.env.RESEND_API_KEY ||
+      process.env.RESEND_API_KEY === "re_placeholder"
+    ) {
+      console.log(
+        "Email sending skipped (no API key configured):",
+        options.subject
+      );
+      return { success: true, messageId: "skipped" };
+    }
+
     const { data, error } = await resend.emails.send({
       from:
         process.env.EMAIL_FROM ||
