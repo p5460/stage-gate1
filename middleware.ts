@@ -1,12 +1,18 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import authConfig from "@/auth.config";
-import {
-  DEFAULT_LOGIN_REDIRECT,
-  apiAuthPrefix,
-  authRoutes,
-  publicRoutes,
-} from "@/routes";
+
+// Inline routes for Edge Runtime compatibility
+const publicRoutes = ["/", "/auth/new-verification"];
+const authRoutes = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/error",
+  "/auth/reset",
+  "/auth/new-password",
+];
+const apiAuthPrefix = "/api/auth";
+const DEFAULT_LOGIN_REDIRECT = "/dashboard";
 
 const { auth } = NextAuth(authConfig);
 
