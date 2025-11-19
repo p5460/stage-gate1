@@ -23,18 +23,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the session token
-  let token = null;
-  try {
-    token = await getToken({
-      req,
-      secret: process.env.AUTH_SECRET,
-    });
-  } catch (error) {
-    console.error("Error getting token in middleware:", error);
-  }
-
-  const isLoggedIn = !!token;
+  // Temporarily disable token checking to test if middleware works
+  // TODO: Re-enable token checking once Edge Runtime issues are resolved
+  const isLoggedIn = false; // Temporarily treat all users as not logged in
   const isPublicRoute = publicRoutes.includes(pathname);
   const isAuthRoute = authRoutes.includes(pathname);
 
@@ -59,56 +50,8 @@ export async function middleware(req: NextRequest) {
     );
   }
 
-  // Role-based access control for protected routes
-  if (isLoggedIn && token?.role) {
-    const userRole = token.role as string;
-
-    // Admin routes - restricted to ADMIN and GATEKEEPER roles
-    if (pathname.startsWith("/admin")) {
-      if (!["ADMIN", "GATEKEEPER"].includes(userRole)) {
-        return NextResponse.redirect(new URL("/dashboard", nextUrl));
-      }
-    }
-
-    // Gatekeeper and review routes - restricted to ADMIN, GATEKEEPER, and REVIEWER roles
-    if (pathname.includes("/gate-reviews") || pathname.includes("/reviews")) {
-      if (!["ADMIN", "GATEKEEPER", "REVIEWER"].includes(userRole)) {
-        return NextResponse.redirect(new URL("/dashboard", nextUrl));
-      }
-    }
-
-    // Project management routes - require PROJECT_LEAD, ADMIN, or GATEKEEPER
-    if (
-      pathname.includes("/projects/create") ||
-      pathname.includes("/projects/edit")
-    ) {
-      if (!["ADMIN", "PROJECT_LEAD", "GATEKEEPER"].includes(userRole)) {
-        return NextResponse.redirect(new URL("/projects", nextUrl));
-      }
-    }
-
-    // Templates management - admin and gatekeeper only
-    if (pathname.includes("/templates") && pathname.includes("/manage")) {
-      if (!["ADMIN", "GATEKEEPER"].includes(userRole)) {
-        return NextResponse.redirect(new URL("/dashboard", nextUrl));
-      }
-    }
-
-    // Reports - accessible to multiple roles
-    if (pathname.startsWith("/reports")) {
-      if (
-        ![
-          "ADMIN",
-          "GATEKEEPER",
-          "PROJECT_LEAD",
-          "RESEARCHER",
-          "REVIEWER",
-        ].includes(userRole)
-      ) {
-        return NextResponse.redirect(new URL("/dashboard", nextUrl));
-      }
-    }
-  }
+  // Role-based access control temporarily disabled
+  // TODO: Re-enable once Edge Runtime token checking is working
 
   return NextResponse.next();
 }
