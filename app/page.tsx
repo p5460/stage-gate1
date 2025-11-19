@@ -1,5 +1,3 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
 import { LoginButton } from "@/components/auth/login-button";
 import { Button } from "@/components/ui/button";
 import { Poppins } from "next/font/google";
@@ -10,12 +8,8 @@ const font = Poppins({
   weight: ["600"],
 });
 
-export default async function Home() {
-  const session = await auth();
-
-  if (session?.user) {
-    redirect("/dashboard");
-  }
+export default function Home() {
+  // Session check and redirect handled by middleware
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-[#005b9f] via-blue-800 to-blue-600">
