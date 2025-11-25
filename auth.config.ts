@@ -2,7 +2,6 @@ import type { NextAuthConfig } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import AzureAD from "next-auth/providers/azure-ad";
-import { validateOAuthEnvironmentVariables } from "./lib/env-validation";
 
 /**
  * Edge-Compatible Authentication Configuration
@@ -19,6 +18,7 @@ import { validateOAuthEnvironmentVariables } from "./lib/env-validation";
  * - NO Node.js-specific modules (fs, crypto, etc.)
  * - NO heavy computations or blocking operations
  * - NO callbacks that query the database
+ * - NO module-level function calls or side effects
  *
  * What Goes Here:
  * ✅ OAuth provider configurations (Google, GitHub, Azure AD)
@@ -30,14 +30,20 @@ import { validateOAuthEnvironmentVariables } from "./lib/env-validation";
  * ❌ Database queries in callbacks
  * ❌ Credentials provider (requires database)
  * ❌ Session/JWT callbacks with database access
+ * ❌ Environment validation (moved to auth.ts)
  *
  * @see auth.ts for full Node.js configuration
  * @see middleware.ts for usage in edge runtime
  */
 
-// Validate OAuth environment variables on module load
-// This ensures missing credentials are caught early in development
-validateOAuthEnvironmentVariables();
+/**
+ * Explicit Edge Runtime Declaration
+ *
+ * This tells Next.js that this module is designed for Edge Runtime.
+ * It enables build-time validation and prevents Node.js-specific code
+ * from being bundled into the Edge Runtime middleware.
+ */
+export const runtime = "edge";
 
 export default {
   /**
@@ -87,4 +93,4 @@ export default {
     signIn: "/auth/login",
     error: "/auth/error",
   },
-} satisfies NextAuthConfig;
+} as NextAuthConfig;

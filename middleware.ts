@@ -28,6 +28,17 @@
  * @see routes.ts for route definitions
  */
 
+/**
+ * Explicit Edge Runtime Declaration
+ *
+ * This tells Next.js that this middleware MUST run in Edge Runtime.
+ * It enables build-time validation and prevents Node.js-specific code
+ * from being bundled into the middleware.
+ *
+ * Note: Middleware uses 'experimental-edge' runtime designation.
+ */
+export const runtime = "experimental-edge";
+
 import NextAuth from "next-auth";
 import authConfig from "./auth.config";
 import {
