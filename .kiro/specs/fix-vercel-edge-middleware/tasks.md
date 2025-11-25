@@ -38,7 +38,7 @@
   - Verify redirects work correctly for unauthorized access
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [-] 5. Test authentication flows locally
+- [x] 5. Test authentication flows locally
   - Test credentials (email/password) login flow
   - Test Google OAuth login flow
   - Test GitHub OAuth login flow
@@ -56,7 +56,7 @@
   - Test middleware execution in local Edge Runtime environment
   - _Requirements: 1.1, 1.2, 1.4, 4.5_
 
-- [-] 7. Deploy to Vercel and verify
+- [x] 7. Deploy to Vercel and verify
   - Push changes to Git repository
   - Trigger Vercel deployment
   - Monitor build logs for Edge Function errors
