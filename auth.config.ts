@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import AzureAD from "next-auth/providers/azure-ad";
-import { validateOAuthEnvironmentVariables } from "@/lib/env-validation";
+import { validateOAuthEnvironmentVariables } from "./lib/env-validation";
 
 /**
  * Edge-Compatible Authentication Configuration
