@@ -1,102 +1,112 @@
 /**
  * NextAuth v4 Middleware for Edge Runtime
  *
- * This middleware uses NextAuth v4's withAuth helper which is designed
- * for Edge Runtime compatibility.
+ * This middleware uses getToken directly for full control over authentication
+ * and route protection logic.
  */
 
-import { withAuth } from "next-auth/middleware";
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
-import { publicRoutes, authRoutes, apiAuthPrefix } from "./routes";
+import type { NextRequest } from "next/server";
+import {
+  DEFAULT_LOGIN_REDIRECT,
+  apiAuthPrefix,
+  authRoutes,
+  publicRoutes,
+} from "./routes";
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
+export async function middleware(req: NextRequest) {
+  const { nextUrl } = req;
+  const pathname = nextUrl.pathname;
 
-    // Redirect authenticated users away from auth pages
-    if (isAuthPage && isAuth) {
-      return NextResponse.redirect(new URL("/dashboard", req.url));
-    }
+  // Get authentication token
+  const token = await getToken({ req, secret: process.env.AUTH_SECRET });
+  const isLoggedIn = !!token;
 
-    // Role-based access control
-    const userRole = token?.role;
+  // Check route types
+  const isApiAuthRoute = pathname.startsWith(apiAuthPrefix);
+  const isPublicRoute = publicRoutes.includes(pathname);
+  const isAuthRoute = authRoutes.includes(pathname);
 
-    // Admin routes
-    if (req.nextUrl.pathname.startsWith("/admin")) {
-      if (userRole !== "ADMIN" && userRole !== "GATEKEEPER") {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
-
-    // Review routes
-    if (
-      req.nextUrl.pathname.startsWith("/reviews") ||
-      req.nextUrl.pathname.includes("/review")
-    ) {
-      if (
-        userRole !== "ADMIN" &&
-        userRole !== "GATEKEEPER" &&
-        userRole !== "REVIEWER"
-      ) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
-
-    // Project management routes
-    if (
-      req.nextUrl.pathname.startsWith("/projects/create") ||
-      (req.nextUrl.pathname.includes("/projects/") &&
-        req.nextUrl.pathname.includes("/edit"))
-    ) {
-      if (
-        userRole !== "ADMIN" &&
-        userRole !== "PROJECT_LEAD" &&
-        userRole !== "GATEKEEPER"
-      ) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
-
-    // Reports routes
-    if (req.nextUrl.pathname.startsWith("/reports")) {
-      if (
-        userRole !== "ADMIN" &&
-        userRole !== "GATEKEEPER" &&
-        userRole !== "PROJECT_LEAD" &&
-        userRole !== "REVIEWER"
-      ) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
-
+  // Rule 1: Always allow API auth routes
+  if (isApiAuthRoute) {
     return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const pathname = req.nextUrl.pathname;
-
-        // Allow public routes
-        const isPublicRoute = publicRoutes.includes(pathname);
-        const isAuthRoute = authRoutes.includes(pathname);
-        const isApiAuthRoute = pathname.startsWith(apiAuthPrefix);
-
-        // Always allow API auth routes, auth pages, and public routes
-        if (isApiAuthRoute || isAuthRoute || isPublicRoute) {
-          return true;
-        }
-
-        // For all other routes, require authentication
-        return !!token;
-      },
-    },
-    pages: {
-      signIn: "/auth/login",
-    },
   }
-);
+
+  // Rule 2: Redirect authenticated users away from auth pages
+  if (isAuthRoute) {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
+    }
+    return NextResponse.next();
+  }
+
+  // Rule 3: Allow public routes
+  if (isPublicRoute) {
+    return NextResponse.next();
+  }
+
+  // Rule 4: Redirect unauthenticated users to login
+  if (!isLoggedIn) {
+    let callbackUrl = pathname;
+    if (nextUrl.search) {
+      callbackUrl += nextUrl.search;
+    }
+    const encodedCallbackUrl = encodeURIComponent(callbackUrl);
+    return NextResponse.redirect(
+      new URL(`/auth/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
+    );
+  }
+
+  // Role-based access control
+  const userRole = token?.role as string | undefined;
+
+  // Admin routes
+  if (pathname.startsWith("/admin")) {
+    if (userRole !== "ADMIN" && userRole !== "GATEKEEPER") {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Review routes
+  if (pathname.startsWith("/reviews") || pathname.includes("/review")) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "GATEKEEPER" &&
+      userRole !== "REVIEWER"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Project management routes
+  if (
+    pathname.startsWith("/projects/create") ||
+    (pathname.includes("/projects/") && pathname.includes("/edit"))
+  ) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "PROJECT_LEAD" &&
+      userRole !== "GATEKEEPER"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Reports routes
+  if (pathname.startsWith("/reports")) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "GATEKEEPER" &&
+      userRole !== "PROJECT_LEAD" &&
+      userRole !== "REVIEWER"
+    ) {
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],
