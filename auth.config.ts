@@ -2,8 +2,61 @@ import type { NextAuthConfig } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import AzureAD from "next-auth/providers/azure-ad";
+import { validateOAuthEnvironmentVariables } from "@/lib/env-validation";
+
+/**
+ * Edge-Compatible Authentication Configuration
+ *
+ * IMPORTANT: This file must remain edge-runtime compatible!
+ *
+ * Purpose:
+ * - Provides authentication configuration for Vercel Edge Runtime
+ * - Used by middleware.ts for route protection at the edge
+ * - Contains only OAuth provider configurations and custom pages
+ *
+ * Restrictions:
+ * - NO database imports (@prisma/client, lib/db, etc.)
+ * - NO Node.js-specific modules (fs, crypto, etc.)
+ * - NO heavy computations or blocking operations
+ * - NO callbacks that query the database
+ *
+ * What Goes Here:
+ * ✅ OAuth provider configurations (Google, GitHub, Azure AD)
+ * ✅ Custom page routes (signIn, error)
+ * ✅ Edge-compatible utilities
+ *
+ * What Goes in auth.ts:
+ * ❌ Prisma adapter
+ * ❌ Database queries in callbacks
+ * ❌ Credentials provider (requires database)
+ * ❌ Session/JWT callbacks with database access
+ *
+ * @see auth.ts for full Node.js configuration
+ * @see middleware.ts for usage in edge runtime
+ */
+
+// Validate OAuth environment variables on module load
+// This ensures missing credentials are caught early in development
+validateOAuthEnvironmentVariables();
 
 export default {
+  /**
+   * OAuth Providers Configuration
+   *
+   * These providers handle authentication through third-party services.
+   * All providers auto-verify email addresses and don't require database
+   * access during the initial authentication flow.
+   *
+   * Environment Variables Required:
+   * - Google: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+   * - GitHub: GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+   * - Azure AD: AZURE_AD_CLIENT_ID, AZURE_AD_CLIENT_SECRET, AZURE_AD_TENANT_ID
+   *
+   * Redirect URIs (must be configured in provider console):
+   * - Google: https://your-domain.com/api/auth/callback/google
+   * - GitHub: https://your-domain.com/api/auth/callback/github
+   * - Azure AD: https://your-domain.com/api/auth/callback/azure-ad
+   */
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -16,41 +69,22 @@ export default {
     AzureAD({
       clientId: process.env.AZURE_AD_CLIENT_ID,
       clientSecret: process.env.AZURE_AD_CLIENT_SECRET,
+      // Azure AD requires tenant-specific issuer URL
+      // Use 'common' for multi-tenant, or specific tenant ID for single-tenant
       issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
     }),
   ],
+  /**
+   * Custom Pages Configuration
+   *
+   * Defines custom routes for authentication flows instead of Auth.js defaults.
+   * This allows for branded, application-specific authentication pages.
+   *
+   * signIn: Custom login page (default would be /api/auth/signin)
+   * error: Custom error page for OAuth failures (default would be /api/auth/error)
+   */
   pages: {
     signIn: "/auth/login",
     error: "/auth/error",
-  },
-  callbacks: {
-    async session({ token, session }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
-      }
-
-      if (token.role && session.user) {
-        session.user.role = token.role as
-          | "ADMIN"
-          | "USER"
-          | "GATEKEEPER"
-          | "PROJECT_LEAD"
-          | "RESEARCHER"
-          | "REVIEWER"
-          | "CUSTOM";
-      }
-
-      if (session.user) {
-        session.user.name = token.name;
-        session.user.email = token.email!;
-        session.user.isOAuth = token.isOAuth as boolean;
-      }
-
-      return session;
-    },
-    async jwt({ token }) {
-      // Pass through token without database queries for Edge Runtime compatibility
-      return token;
-    },
   },
 } satisfies NextAuthConfig;
