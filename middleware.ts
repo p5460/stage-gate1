@@ -80,9 +80,7 @@ export default withAuth(
 
         // Allow public routes
         const isPublicRoute = publicRoutes.includes(pathname);
-        const isAuthRoute = authRoutes.some((route) =>
-          pathname.startsWith(route)
-        );
+        const isAuthRoute = authRoutes.includes(pathname);
         const isApiAuthRoute = pathname.startsWith(apiAuthPrefix);
 
         // Always allow API auth routes, auth pages, and public routes
