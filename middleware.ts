@@ -7,6 +7,7 @@
 
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import { publicRoutes, authRoutes, apiAuthPrefix } from "./routes";
 
 export default withAuth(
   function middleware(req) {
@@ -75,14 +76,17 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
-        // Allow public routes
-        const publicRoutes = ["/", "/auth/new-verification"];
-        const isPublicRoute = publicRoutes.includes(req.nextUrl.pathname);
-        const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
-        const isApiAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
+        const pathname = req.nextUrl.pathname;
 
-        // Always allow API auth routes and auth pages
-        if (isApiAuthRoute || isAuthPage || isPublicRoute) {
+        // Allow public routes
+        const isPublicRoute = publicRoutes.includes(pathname);
+        const isAuthRoute = authRoutes.some((route) =>
+          pathname.startsWith(route)
+        );
+        const isApiAuthRoute = pathname.startsWith(apiAuthPrefix);
+
+        // Always allow API auth routes, auth pages, and public routes
+        if (isApiAuthRoute || isAuthRoute || isPublicRoute) {
           return true;
         }
 
