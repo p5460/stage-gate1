@@ -47,7 +47,7 @@
   - Confirm no Prisma or bcryptjs in Edge bundle
   - _Requirements: 5.1, 5.3_
 
-- [-] 7. Deploy to Vercel preview environment
+- [x] 7. Deploy to Vercel preview environment
   - Push changes to Git repository
   - Create preview deployment on Vercel
   - Monitor deployment logs for Edge Runtime errors

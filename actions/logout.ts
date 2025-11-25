@@ -1,7 +1,6 @@
 "use server";
 
-import { signOut } from "@/auth";
-
 export const logout = async () => {
-  await signOut();
+  // Logout happens on client side with NextAuth v4
+  return { success: true };
 };

@@ -22,8 +22,8 @@
     "db:seed-full": "npm run db:seed && npm run db:seed-multi && npm run db:seed-budget"
   },
   "dependencies": {
-    "@auth/prisma-adapter": "^2.11.1",
     "@hookform/resolvers": "^5.2.2",
+    "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/client": "^6.16.1",
     "@prisma/extension-accelerate": "^2.0.2",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -70,7 +70,7 @@
     "jspdf": "^3.0.3",
     "lucide-react": "^0.544.0",
     "next": "15.5.6",
-    "next-auth": "^5.0.0-beta.30",
+    "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "pptxgenjs": "^4.0.1",
     "puppeteer": "^24.29.0",
