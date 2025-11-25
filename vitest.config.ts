@@ -10,12 +10,6 @@ export default defineConfig({
     hookTimeout: 10000, // 10 second timeout for hooks
     teardownTimeout: 10000,
     isolate: true,
-    pool: "forks",
-    poolOptions: {
-      forks: {
-        singleFork: false,
-      },
-    },
   },
   resolve: {
     alias: {
