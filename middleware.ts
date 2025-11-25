@@ -74,7 +74,21 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow public routes
+        const publicRoutes = ["/", "/auth/new-verification"];
+        const isPublicRoute = publicRoutes.includes(req.nextUrl.pathname);
+        const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
+        const isApiAuthRoute = req.nextUrl.pathname.startsWith("/api/auth");
+
+        // Always allow API auth routes and auth pages
+        if (isApiAuthRoute || isAuthPage || isPublicRoute) {
+          return true;
+        }
+
+        // For all other routes, require authentication
+        return !!token;
+      },
     },
     pages: {
       signIn: "/auth/login",
