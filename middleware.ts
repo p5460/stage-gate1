@@ -24,55 +24,124 @@
  * 4. Enforces role-based access control for protected routes
  * 5. Preserves callback URLs for post-login redirects
  *
- * @see auth.config.ts for edge-compatible auth configuration and middleware logic
+ * @see auth.config.ts for edge-compatible auth configuration
  * @see routes.ts for route definitions
  */
 
 import NextAuth from "next-auth";
 import authConfig from "./auth.config";
+import {
+  DEFAULT_LOGIN_REDIRECT,
+  apiAuthPrefix,
+  authRoutes,
+  publicRoutes,
+} from "./routes";
 
 /**
  * Initialize NextAuth with Edge-Compatible Configuration
  *
  * This creates an auth instance using only the edge-compatible configuration.
- * The actual middleware logic is in the `authorized` callback in auth.config.ts.
- *
- * NextAuth v5 automatically handles Edge Runtime compatibility when using
- * the `authorized` callback pattern.
+ * The auth function validates JWT tokens without querying the database.
  */
-export const { auth } = NextAuth(authConfig);
+const { auth } = NextAuth(authConfig);
 
 /**
- * Export auth as default middleware
+ * Middleware Function
  *
- * NextAuth v5 wraps the auth function to create middleware that:
- * - Validates JWT tokens
- * - Calls the `authorized` callback for each request
- * - Handles redirects based on callback return value
+ * Wrapped with auth() to provide authentication context.
+ * Runs on every request matched by the config.matcher.
  */
-export default auth;
+export default auth((req) => {
+  const { nextUrl } = req;
+  const isLoggedIn = !!req.auth;
+
+  const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
+  const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
+  const isAuthRoute = authRoutes.includes(nextUrl.pathname);
+
+  // Allow API auth routes
+  if (isApiAuthRoute) {
+    return;
+  }
+
+  // Redirect authenticated users away from auth pages
+  if (isAuthRoute) {
+    if (isLoggedIn) {
+      return Response.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
+    }
+    return;
+  }
+
+  // Redirect unauthenticated users to login
+  if (!isLoggedIn && !isPublicRoute) {
+    let callbackUrl = nextUrl.pathname;
+    if (nextUrl.search) {
+      callbackUrl += nextUrl.search;
+    }
+    const encodedCallbackUrl = encodeURIComponent(callbackUrl);
+    return Response.redirect(
+      new URL(`/auth/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
+    );
+  }
+
+  // Role-based access control
+  const userRole = req.auth?.user?.role;
+
+  // Admin routes
+  if (nextUrl.pathname.startsWith("/admin")) {
+    if (userRole !== "ADMIN" && userRole !== "GATEKEEPER") {
+      return Response.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Review routes
+  if (
+    nextUrl.pathname.startsWith("/reviews") ||
+    nextUrl.pathname.includes("/review")
+  ) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "GATEKEEPER" &&
+      userRole !== "REVIEWER"
+    ) {
+      return Response.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Project management routes
+  if (
+    nextUrl.pathname.startsWith("/projects/create") ||
+    (nextUrl.pathname.includes("/projects/") &&
+      nextUrl.pathname.includes("/edit"))
+  ) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "PROJECT_LEAD" &&
+      userRole !== "GATEKEEPER"
+    ) {
+      return Response.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  // Reports routes
+  if (nextUrl.pathname.startsWith("/reports")) {
+    if (
+      userRole !== "ADMIN" &&
+      userRole !== "GATEKEEPER" &&
+      userRole !== "PROJECT_LEAD" &&
+      userRole !== "REVIEWER"
+    ) {
+      return Response.redirect(new URL("/dashboard", nextUrl));
+    }
+  }
+
+  return;
+});
 
 /**
  * Middleware Configuration
  *
  * Defines which routes the middleware should run on.
- *
- * Matcher Pattern Explanation:
- * - "/((?!.+\\.[\\w]+$|_next).*)" - Match all routes except:
- *   - Static files (files with extensions like .jpg, .css, .js)
- *   - Next.js internal routes (_next/*)
- * - "/" - Match root route
- * - "/(api|trpc)(.*)" - Match all API and tRPC routes
- *
- * Why this matcher:
- * - Runs on all pages and API routes
- * - Skips static assets (performance optimization)
- * - Skips Next.js internals (prevents conflicts)
- *
- * Performance Impact:
- * - Middleware runs on every matched request
- * - Keep logic lightweight and fast
- * - Avoid heavy computations or database queries
  */
 export const config = {
   matcher: ["/((?!.+\\.[\\w]+$|_next).*)", "/", "/(api|trpc)(.*)"],

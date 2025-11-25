@@ -113,99 +113,36 @@ export default {
    */
   callbacks: {
     /**
-     * Authorized Callback
+     * JWT Callback for Edge Runtime
      *
-     * This callback runs in Edge Runtime for every request to determine if the user
-     * is authorized to access the requested page. This is the recommended way to
-     * implement middleware logic in NextAuth v5.
-     *
-     * @param auth - The authentication session (null if not authenticated)
-     * @param request - The incoming request
-     * @returns boolean - true to allow, false to redirect to sign-in
+     * This callback runs in Edge Runtime and must not use database queries.
+     * It only passes through the token data without modifications.
      */
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isApiAuthRoute = nextUrl.pathname.startsWith(apiAuthPrefix);
-      const isPublicRoute = publicRoutes.includes(nextUrl.pathname);
-      const isAuthRoute = authRoutes.includes(nextUrl.pathname);
-
-      // Always allow API auth routes
-      if (isApiAuthRoute) {
-        return true;
+    async jwt({ token }) {
+      return token;
+    },
+    /**
+     * Session Callback for Edge Runtime
+     *
+     * This callback runs in Edge Runtime and enriches the session with token data.
+     */
+    async session({ session, token }) {
+      if (token.sub && session.user) {
+        session.user.id = token.sub;
       }
-
-      // Redirect authenticated users away from auth pages
-      if (isAuthRoute) {
-        if (isLoggedIn) {
-          return Response.redirect(new URL(DEFAULT_LOGIN_REDIRECT, nextUrl));
-        }
-        return true;
+      if (token.role && session.user) {
+        session.user.role = token.role as any;
       }
-
-      // Redirect unauthenticated users to login
-      if (!isLoggedIn && !isPublicRoute) {
-        let callbackUrl = nextUrl.pathname;
-        if (nextUrl.search) {
-          callbackUrl += nextUrl.search;
-        }
-        const encodedCallbackUrl = encodeURIComponent(callbackUrl);
-        return Response.redirect(
-          new URL(`/auth/login?callbackUrl=${encodedCallbackUrl}`, nextUrl)
-        );
+      if (token.name && session.user) {
+        session.user.name = token.name;
       }
-
-      // Role-based access control
-      const userRole = auth?.user?.role;
-
-      // Admin routes
-      if (nextUrl.pathname.startsWith("/admin")) {
-        if (userRole !== "ADMIN" && userRole !== "GATEKEEPER") {
-          return Response.redirect(new URL("/dashboard", nextUrl));
-        }
+      if (token.email && session.user) {
+        session.user.email = token.email;
       }
-
-      // Review routes
-      if (
-        nextUrl.pathname.startsWith("/reviews") ||
-        nextUrl.pathname.includes("/review")
-      ) {
-        if (
-          userRole !== "ADMIN" &&
-          userRole !== "GATEKEEPER" &&
-          userRole !== "REVIEWER"
-        ) {
-          return Response.redirect(new URL("/dashboard", nextUrl));
-        }
+      if (typeof token.isOAuth === "boolean" && session.user) {
+        session.user.isOAuth = token.isOAuth;
       }
-
-      // Project management routes
-      if (
-        nextUrl.pathname.startsWith("/projects/create") ||
-        (nextUrl.pathname.includes("/projects/") &&
-          nextUrl.pathname.includes("/edit"))
-      ) {
-        if (
-          userRole !== "ADMIN" &&
-          userRole !== "PROJECT_LEAD" &&
-          userRole !== "GATEKEEPER"
-        ) {
-          return Response.redirect(new URL("/dashboard", nextUrl));
-        }
-      }
-
-      // Reports routes
-      if (nextUrl.pathname.startsWith("/reports")) {
-        if (
-          userRole !== "ADMIN" &&
-          userRole !== "GATEKEEPER" &&
-          userRole !== "PROJECT_LEAD" &&
-          userRole !== "REVIEWER"
-        ) {
-          return Response.redirect(new URL("/dashboard", nextUrl));
-        }
-      }
-
-      return true;
+      return session;
     },
   },
 } as NextAuthConfig;
